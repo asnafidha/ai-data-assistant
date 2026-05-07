@@ -1,0 +1,23 @@
+# Environment files
+.env
+.env.local
+.env.*
+
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+
+# Next.js
+frontend/.next/
+frontend/out/
+
+# Database
+backend/database.db
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
