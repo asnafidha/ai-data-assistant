@@ -36,10 +36,10 @@ interface EDADisplayProps {
   onAIAnalyze?: (query: string) => void;
 }
 
-export default function EDADisplay({ 
-  data = null, 
-  originalFile = null, 
-  activeTab = 'overview', 
+export default function EDADisplay({
+  data = null,
+  originalFile = null,
+  activeTab = 'overview',
   onTabChange,
   onAIAnalyze
 }: EDADisplayProps) {
@@ -55,10 +55,10 @@ export default function EDADisplay({
   const [loadingSample, setLoadingSample] = useState(false);
   const [trendResult, setTrendResult] = useState<any | null>(null);
   const [columnDtypes, setColumnDtypes] = useState<Record<string, string> | null>(null);
-  const [healthStatus, setHealthStatus] = useState<{status: string; sessions: number} | null>(null);
-  
+  const [healthStatus, setHealthStatus] = useState<{ status: string; sessions: number } | null>(null);
+
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-  
+
   // Get current data with proper typing
   const currentData: EDAData | null = data || uploadResult;
 
@@ -75,11 +75,11 @@ export default function EDADisplay({
       });
       const resultData = await res.json();
       setUploadResult(resultData);
-      
+
       // Check backend health
       const health = await langChainService.getHealth();
       setHealthStatus(health);
-      
+
     } catch (error) {
       console.error(error);
     }
@@ -102,7 +102,7 @@ export default function EDADisplay({
         console.error('Health check failed:', error);
       }
     };
-    
+
     checkHealth();
   }, []);
 
@@ -250,9 +250,8 @@ export default function EDADisplay({
           <div className="text-sm text-gray-400">{currentData.shape?.rows || 0} rows × {currentData.shape?.columns || 0} cols</div>
           {healthStatus && (
             <div className="text-xs mt-1">
-              <span className={`px-2 py-1 rounded ${
-                healthStatus.status === 'healthy' ? 'bg-green-600' : 'bg-red-600'
-              }`}>
+              <span className={`px-2 py-1 rounded ${healthStatus.status === 'healthy' ? 'bg-green-600' : 'bg-red-600'
+                }`}>
                 Backend: {healthStatus.status} ({healthStatus.sessions} sessions)
               </span>
             </div>
@@ -268,11 +267,11 @@ export default function EDADisplay({
 
       {/* Tabs */}
       <div className="flex gap-2 mb-3 overflow-x-auto">
-        {['overview','missing','stats','sample','visuals','insights','outliers','duplicates','columns','deepclean'].map(tab => (
+        {['overview', 'missing', 'stats', 'sample', 'visuals', 'insights', 'outliers', 'duplicates', 'columns', 'deepclean'].map(tab => (
           <button
             key={tab}
             onClick={() => onTabChange?.(tab)}
-            className={`px-3 py-1 rounded ${activeTab===tab ? 'bg-purple-600' : 'bg-gray-700 hover:bg-gray-600'}`}
+            className={`px-3 py-1 rounded ${activeTab === tab ? 'bg-purple-600' : 'bg-gray-700 hover:bg-gray-600'}`}
           >
             {tab === 'deepclean' ? 'Clean Result' : tab.charAt(0).toUpperCase() + tab.slice(1)}
           </button>
@@ -288,7 +287,7 @@ export default function EDADisplay({
             <p className="mt-2"><strong>Numerical:</strong> {safeNumericalColumns.join(', ') || 'None'}</p>
             <p><strong>Categorical:</strong> {safeCategoricalColumns.join(', ') || 'None'}</p>
             {currentData.message && <p className="text-green-400 mt-2">{currentData.message}</p>}
-            
+
             {/* AI Analysis Quick Actions */}
             <div className="mt-4 p-3 bg-gray-800 rounded">
               <h4 className="font-semibold mb-2">🤖 AI Analysis Quick Actions</h4>
@@ -327,7 +326,7 @@ export default function EDADisplay({
                       <td>{v}</td>
                       <td>
                         {v > 0 && (
-                          <button 
+                          <button
                             onClick={() => handleAIAnalysis(`How should I handle missing values in ${c}?`)}
                             className="text-xs bg-blue-600 px-2 py-1 rounded"
                           >
@@ -368,7 +367,7 @@ export default function EDADisplay({
                           <td className="p-1">{stats.min}</td>
                           <td className="p-1">{stats.max}</td>
                           <td className="p-1">
-                            <button 
+                            <button
                               onClick={() => handleAIAnalysis(`Analyze the distribution of ${col}`)}
                               className="text-xs bg-purple-600 px-2 py-1 rounded"
                             >
@@ -394,7 +393,7 @@ export default function EDADisplay({
                     <div key={col}>
                       <div className="flex justify-between items-center">
                         <p className="font-semibold">{col}</p>
-                        <button 
+                        <button
                           onClick={() => handleAIAnalysis(`Analyze the categorical variable ${col}`)}
                           className="text-xs bg-purple-600 px-2 py-1 rounded"
                         >
@@ -439,9 +438,9 @@ export default function EDADisplay({
             <div className="flex items-center gap-3 mb-2">
               <label className="text-sm text-gray-300">Rows per page:</label>
               <select value={sampleSize} onChange={(e) => { setSampleSize(Number(e.target.value)); setSamplePage(0); }} className="bg-black border border-gray-700 px-2 py-1">
-                {[20,50,100,200].map(n => <option key={n} value={n}>{n}</option>)}
+                {[20, 50, 100, 200].map(n => <option key={n} value={n}>{n}</option>)}
               </select>
-              <button 
+              <button
                 onClick={() => handleAIAnalysis('Analyze patterns in this sample data')}
                 className="text-xs bg-purple-600 px-2 py-1 rounded ml-auto"
               >
@@ -466,9 +465,9 @@ export default function EDADisplay({
                   </table>
                 </div>
                 <div className="flex justify-between items-center mt-2">
-                  <button onClick={() => setSamplePage(p => Math.max(p-1, 0))} disabled={samplePage === 0} className="px-3 py-1 bg-gray-700 rounded">◀ Prev</button>
-                  <div>Page {samplePage+1}{serverTotal ? ` of ${Math.ceil(serverTotal / sampleSize)}` : ''}</div>
-                  <button onClick={() => setSamplePage(p => (serverTotal && (p+1)*sampleSize < serverTotal ? p+1 : p))} disabled={!serverTotal || (samplePage+1)*sampleSize >= (serverTotal||0)} className="px-3 py-1 bg-gray-700 rounded">Next ▶</button>
+                  <button onClick={() => setSamplePage(p => Math.max(p - 1, 0))} disabled={samplePage === 0} className="px-3 py-1 bg-gray-700 rounded">◀ Prev</button>
+                  <div>Page {samplePage + 1}{serverTotal ? ` of ${Math.ceil(serverTotal / sampleSize)}` : ''}</div>
+                  <button onClick={() => setSamplePage(p => (serverTotal && (p + 1) * sampleSize < serverTotal ? p + 1 : p))} disabled={!serverTotal || (samplePage + 1) * sampleSize >= (serverTotal || 0)} className="px-3 py-1 bg-gray-700 rounded">Next ▶</button>
                 </div>
               </>
             ) : <div className="text-gray-400">No sample data available. Open Upload tab and ensure you uploaded file.</div>}
@@ -481,7 +480,7 @@ export default function EDADisplay({
               <div className="mb-4">
                 <div className="flex justify-between items-center mb-2">
                   <h4 className="font-semibold">Correlation Heatmap</h4>
-                  <button 
+                  <button
                     onClick={() => handleAIAnalysis('Explain the correlation patterns in this heatmap')}
                     className="text-xs bg-purple-600 px-2 py-1 rounded"
                   >
@@ -491,7 +490,7 @@ export default function EDADisplay({
                 <img src={currentData.correlation_chart} alt="corr" className="w-full rounded" />
               </div>
             )}
-            
+
             <div className="mb-3">
               <h4 className="font-semibold">Quick trend (linear regression)</h4>
               <div className="flex gap-2 mb-2">
@@ -513,7 +512,7 @@ export default function EDADisplay({
               {trendResult && (
                 <div className="mt-3 p-3 bg-gray-800 rounded">
                   <div>Slope: {trendResult.slope?.toFixed(4)} | Intercept: {trendResult.intercept?.toFixed(4)}</div>
-                  <button 
+                  <button
                     onClick={() => handleAIAnalysis(`Interpret this trend: slope ${trendResult.slope?.toFixed(4)}, intercept ${trendResult.intercept?.toFixed(4)} between ${(document.getElementById('xcol') as HTMLSelectElement).value} and ${(document.getElementById('ycol') as HTMLSelectElement).value}`)}
                     className="text-xs bg-purple-600 px-2 py-1 rounded mt-2"
                   >
@@ -529,7 +528,7 @@ export default function EDADisplay({
                 <div key={col} className="mb-4">
                   <div className="flex justify-between items-center mb-2">
                     <p className="font-semibold">{col}</p>
-                    <button 
+                    <button
                       onClick={() => handleAIAnalysis(`Analyze the distribution of ${col}`)}
                       className="text-xs bg-purple-600 px-2 py-1 rounded"
                     >
@@ -547,7 +546,7 @@ export default function EDADisplay({
           <div>
             <div className="flex justify-between items-center mb-4">
               <h4 className="font-semibold">Auto Insights</h4>
-              <button 
+              <button
                 onClick={() => handleAIAnalysis('Provide detailed analysis based on these insights')}
                 className="text-xs bg-purple-600 px-2 py-1 rounded"
               >
@@ -571,38 +570,38 @@ export default function EDADisplay({
           <div>
             <div className="flex justify-between items-center mb-4">
               <h4 className="font-semibold">Outlier Detection</h4>
-              <button 
+              <button
                 onClick={() => handleAIAnalysis('Analyze all outliers and suggest treatment strategies')}
                 className="text-xs bg-purple-600 px-2 py-1 rounded"
               >
                 AI Outlier Analysis
               </button>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <div className="bg-gray-800 p-3 rounded">
                 <h5 className="font-semibold text-green-400 mb-2">IQR Method</h5>
                 {Object.keys(safeOutliersIqr).length > 0 ? (
                   <table className="w-full text-sm"><tbody>
-                    {Object.entries(safeOutliersIqr).map(([col, cnt]) => 
+                    {Object.entries(safeOutliersIqr).map(([col, cnt]) =>
                       cnt > 0 ? <tr key={col}><td className="p-1">{col}</td><td className="p-1">{cnt}</td></tr> : null
                     )}
                   </tbody></table>
                 ) : <div className="text-gray-400">No outliers</div>}
               </div>
-              
+
               <div className="bg-gray-800 p-3 rounded">
                 <h5 className="font-semibold text-blue-400 mb-2">Isolation Forest</h5>
                 {safeOutliersIso?.count > 0 ? (
                   <div>{safeOutliersIso.count} outliers detected</div>
                 ) : <div className="text-gray-400">No outliers</div>}
               </div>
-              
+
               <div className="bg-gray-800 p-3 rounded">
                 <h5 className="font-semibold text-yellow-400 mb-2">Z-Score (σ=3)</h5>
                 {Object.keys(safeOutliersZscore).length > 0 ? (
                   <table className="w-full text-sm"><tbody>
-                    {Object.entries(safeOutliersZscore).map(([col, cnt]) => 
+                    {Object.entries(safeOutliersZscore).map(([col, cnt]) =>
                       cnt > 0 ? <tr key={col}><td className="p-1">{col}</td><td className="p-1">{cnt}</td></tr> : null
                     )}
                   </tbody></table>
@@ -630,7 +629,7 @@ export default function EDADisplay({
           <div>
             <div className="flex justify-between items-center mb-2">
               <h3 className="text-lg font-bold">🔍 Duplicates</h3>
-              <button 
+              <button
                 onClick={() => handleAIAnalysis('Analyze these duplicate rows and suggest handling strategies')}
                 className="text-xs bg-purple-600 px-2 py-1 rounded"
               >
@@ -668,7 +667,7 @@ export default function EDADisplay({
           <div>
             <div className="flex justify-between items-center mb-2">
               <h4 className="font-semibold">Columns & types</h4>
-              <button 
+              <button
                 onClick={() => handleAIAnalysis('Analyze the schema and suggest data type optimizations')}
                 className="text-xs bg-purple-600 px-2 py-1 rounded"
               >
@@ -684,7 +683,7 @@ export default function EDADisplay({
                       <td className="p-1">{c}</td>
                       <td className="p-1">{columnDtypes ? columnDtypes[c] : '—'}</td>
                       <td className="p-1">
-                        <button 
+                        <button
                           onClick={() => handleAIAnalysis(`Analyze column ${c} with type ${columnDtypes ? columnDtypes[c] : 'unknown'}`)}
                           className="text-xs bg-purple-600 px-2 py-1 rounded"
                         >
@@ -703,7 +702,7 @@ export default function EDADisplay({
           <div>
             <div className="flex justify-between items-center mb-2">
               <h4 className="font-semibold">Deep Clean Preview</h4>
-              <button 
+              <button
                 onClick={() => handleAIAnalysis('Analyze the cleaned data and suggest further improvements')}
                 className="text-xs bg-purple-600 px-2 py-1 rounded"
               >

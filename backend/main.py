@@ -12,7 +12,7 @@ import missingno as msno
 import uuid
 import logging
 import json
-import google.generativeai as genai
+from groq import Groq
 from typing import Optional, Dict, Any, List
 from sklearn.ensemble import IsolationForest
 from sklearn.linear_model import LinearRegression
@@ -196,7 +196,7 @@ security = RestrictedEnvironment()
 class LangChainService:
     """Original LLM wrapper maintaining compatibility with your baseline."""
     def __init__(self):
-        self.provider = os.getenv("LLM_PROVIDER", "gemini")
+        self.provider = os.getenv("LLM_PROVIDER", "groq")
 
     async def analyze_data(self, query: str, data_context: Dict[str, Any]) -> str:
         try:
@@ -239,6 +239,8 @@ class LangChainService:
             return await self._get_openai_response(prompt)
         elif provider == "anthropic":
             return await self._get_anthropic_response(prompt)
+        elif provider == "groq":
+            return await self._get_groq_response(prompt)
         else:
             return await self._get_ollama_response(prompt)
 
@@ -262,17 +264,27 @@ class LangChainService:
         resp = await model.ainvoke(messages)
         return resp.content
 
+    async def _get_groq_response(self, prompt: str) -> str:
+        api_key = os.getenv("GROQ_API_KEY")
+        if not api_key:
+            raise Exception("GROQ_API_KEY not set")
+        client = Groq(api_key=api_key)
+        def _call():
+            resp = client.chat.completions.create(
+                model=os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
+                messages=[
+                    {"role": "system", "content": "You are a helpful data analysis assistant."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.2,
+                max_tokens=2000,
+            )
+            return resp.choices[0].message.content
+        return await asyncio.to_thread(_call)
+
     async def _get_ollama_response(self, prompt: str) -> str:
         if not _LANGCHAIN_AVAILABLE:
-            # fallback: try google gemini (if configured)
-            if os.getenv("GOOGLE_API_KEY"):
-                # use google generative ai in a synchronous-ish wrapper
-                genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
-                model = genai.GenerativeModel('gemini-1.5-flash')
-                # run in thread to avoid blocking
-                resp = await asyncio.to_thread(model.generate_content, prompt)
-                return getattr(resp, "text", str(resp))
-            raise Exception("No LLM integrations available")
+            return await self._get_groq_response(prompt)
         base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
         model = ChatOllama(base_url=base_url, model=os.getenv("OLLAMA_MODEL", "llama2"), temperature=0.2)
         messages = [SystemMessage(content="You are a helpful data analysis assistant."), HumanMessage(content=prompt)]
@@ -332,15 +344,15 @@ class EnhancedLangChainService:
             return {"explanation": response, "success": True}
 
     async def _get_llm_response(self, prompt: str) -> str:
-        provider = os.getenv("LLM_PROVIDER", "gemini").lower()
+        provider = os.getenv("LLM_PROVIDER", "groq").lower()
+        svc = LangChainService()
         if provider == "openai":
-            svc = LangChainService()
             return await svc._get_openai_response(prompt)
         elif provider == "anthropic":
-            svc = LangChainService()
             return await svc._get_anthropic_response(prompt)
+        elif provider == "groq":
+            return await svc._get_groq_response(prompt)
         else:
-            svc = LangChainService()
             return await svc._get_ollama_response(prompt)
 
 # init services
@@ -502,16 +514,16 @@ def generate_auto_insights(df: pd.DataFrame, filename: str) -> List[str]:
         numerical_cols = df.select_dtypes(include=[np.number]).columns.tolist()
         categorical_cols = df.select_dtypes(exclude=[np.number]).columns.tolist()
 
-        insights.append(f"📁 File: {filename}")
-        insights.append(f"🧮 Shape: {df.shape[0]} rows × {df.shape[1]} columns")
-        insights.append(f"⚠️ {total_missing} Missing Value{'s' if total_missing != 1 else ''} Found")
+        insights.append(f"File: {filename}")
+        insights.append(f"Shape: {df.shape[0]} rows x {df.shape[1]} columns")
+        insights.append(f"Warning: {total_missing} Missing Value{'s' if total_missing != 1 else ''} Found")
 
         # Domain hints
         column_names = " ".join(df.columns.astype(str)).lower()
         if any(word in column_names for word in ["price", "sales", "revenue", "profit"]):
-            insights.append("💰 Financial dataset detected - consider time series and volatility analysis")
+            insights.append("Financial dataset detected - consider time series and volatility analysis")
         if any(word in column_names for word in ["patient", "medical", "health", "disease"]):
-            insights.append("🏥 Healthcare dataset detected - check sensitive fields and PHI")
+            insights.append("Healthcare dataset detected - check sensitive fields and PHI")
 
         # correlation highlights
         if len(numerical_cols) >= 2:
@@ -521,7 +533,7 @@ def generate_auto_insights(df: pd.DataFrame, filename: str) -> List[str]:
             corr = sample.corr(numeric_only=True).abs().unstack().sort_values(ascending=False)
             corr = corr[corr < 1.0].dropna().head(5)
             for ((a, b), val) in corr.items():
-                insights.append(f"🔗 Strong correlation: {a} ↔ {b} (|r|={val:.2f})")
+                insights.append(f"Corr: {a} <-> {b} (|r|={val:.2f})")
 
         # top categories
         for col in categorical_cols[:12]:
@@ -529,27 +541,27 @@ def generate_auto_insights(df: pd.DataFrame, filename: str) -> List[str]:
             if not series.empty:
                 top = series.mode().iloc[0]
                 cnt = int(series.value_counts().get(top, 0))
-                insights.append(f"🔹 Most frequent in {col}: {top} ({cnt})")
+                insights.append(f"Top in {col}: {top} ({cnt})")
 
         # numerical summaries
         for col in numerical_cols[:12]:
             s = pd.to_numeric(df[col], errors="coerce").dropna()
             if not s.empty:
-                insights.append(f"📊 {col} → Min: {s.min()}, Max: {s.max()}, Mean: {s.mean():.2f}")
+                insights.append(f"Stats {col}: Min={s.min()}, Max={s.max()}, Mean={s.mean():.2f}")
 
         # outlier detection summary
         outliers_iqr = detect_outliers_iqr(df)
         total_outliers = sum(outliers_iqr.values()) if outliers_iqr else 0
         if total_outliers > 0:
-            insights.append(f"⚠️ {total_outliers} potential outliers detected using IQR method")
+            insights.append(f"Warning: {total_outliers} potential outliers detected using IQR method")
 
         duplicate_count = int(df.duplicated().sum())
         if duplicate_count > 0:
-            insights.append(f"🔍 {duplicate_count} duplicate rows found")
+            insights.append(f"Duplicates: {duplicate_count} duplicate rows found")
 
     except Exception as e:
         logger.exception("auto insights error")
-        insights.append(f"⚠️ Auto-insights generation failed: {e}")
+        insights.append(f"Warning: Auto-insights generation failed: {e}")
     return insights
 
 def cleanup_expired_sessions() -> int:

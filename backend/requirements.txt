@@ -8,11 +8,9 @@ missingno
 scikit-learn
 scipy
 python-dotenv
-google-generativeai
+groq
 langchain
 langchain-community
 langchain-ollama
 openpyxl
 python-multipart
-
-

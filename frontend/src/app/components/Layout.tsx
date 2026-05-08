@@ -11,12 +11,12 @@ interface LayoutProps {
   onExportClick?: () => void;
 }
 
-export default function Layout({ 
-  children, 
-  activeTab = 'overview', 
-  onTabChange, 
-  onCleanClick, 
-  onExportClick 
+export default function Layout({
+  children,
+  activeTab = 'overview',
+  onTabChange,
+  onCleanClick,
+  onExportClick
 }: LayoutProps) {
   const navItems = [
     { id: 'overview', label: 'Overview' },
@@ -39,11 +39,10 @@ export default function Layout({
           {navItems.map((item) => (
             <div
               key={item.id}
-              className={`px-3 py-2 rounded cursor-pointer transition-colors ${
-                activeTab === item.id 
-                  ? 'bg-purple-600 text-white' 
+              className={`px-3 py-2 rounded cursor-pointer transition-colors ${activeTab === item.id
+                  ? 'bg-purple-600 text-white'
                   : 'hover:bg-gray-800 text-gray-300'
-              }`}
+                }`}
               onClick={() => onTabChange?.(item.id)}
             >
               {item.label}
@@ -73,16 +72,16 @@ export default function Layout({
 
       {/* Floating action buttons */}
       <div className="fixed right-6 bottom-6 flex flex-col gap-3 z-50">
-        <motion.button 
-          whileHover={{ scale: 1.05 }} 
+        <motion.button
+          whileHover={{ scale: 1.05 }}
           className="w-14 h-14 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 shadow-lg flex items-center justify-center"
           onClick={onCleanClick}
           title="Deep Clean"
         >
           🧹
         </motion.button>
-        <motion.button 
-          whileHover={{ scale: 1.05 }} 
+        <motion.button
+          whileHover={{ scale: 1.05 }}
           className="w-14 h-14 rounded-full bg-gradient-to-br from-green-500 to-teal-400 shadow-lg flex items-center justify-center"
           onClick={onExportClick}
           title="Export Data"

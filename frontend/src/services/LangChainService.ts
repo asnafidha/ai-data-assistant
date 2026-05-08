@@ -1,10 +1,9 @@
-// services/LangChainService.ts - COMPLETE UPDATED & FIXED VERSION
+// services/LangChainService.ts — Groq-powered version
 
 export type LLMAnalyzeResponse =
   | { analysis: string; success: true }
   | { error: string; success: false };
 
-// Enhanced request interface
 export interface LLMAnalyzeRequest {
   session_id: string;
   query: string;
@@ -13,7 +12,6 @@ export interface LLMAnalyzeRequest {
   response_format?: 'structured' | 'text';
 }
 
-// Structured response interface
 export interface StructuredResponse {
   explanation: string;
   code?: string;
@@ -34,7 +32,7 @@ class LangChainService {
     process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "") ||
     "http://127.0.0.1:8000";
 
-  /** ✅ Upload CSV/XLSX for EDA */
+  /** Upload CSV/XLSX for EDA */
   async uploadFile(file: File) {
     const formData = new FormData();
     formData.append("file", file);
@@ -50,7 +48,7 @@ class LangChainService {
     return res.json();
   }
 
-  /** ✅ Basic LLM analysis (updated to use correct JSON format) */
+  /** Basic LLM analysis */
   async llmAnalyze(
     session_id: string,
     query: string
@@ -82,22 +80,21 @@ class LangChainService {
       return data;
     } catch (error) {
       return {
-        error: `Network error: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`,
+        error: `Network error: ${error instanceof Error ? error.message : "Unknown error"
+          }`,
         success: false,
       };
     }
   }
 
-  /** ✅ Enhanced LLM analysis with structured response */
+  /** Enhanced LLM analysis with structured response */
   async enhancedLlmAnalyze(
     request: LLMAnalyzeRequest
   ): Promise<StructuredResponse> {
     try {
       const url = `${this.apiUrl}/api/llm-analyze-enhanced`;
 
-      console.log("📡 Sending LLM request:", { 
+      console.log("[LLM] Sending request:", {
         url: url,
         body: JSON.stringify(request, null, 2)
       });
@@ -118,12 +115,8 @@ class LangChainService {
       }
 
       const data = await res.json();
-      
-      // 🎯 ADDED: Detailed debug logging
-      console.log("🔍 FULL BACKEND RESPONSE:", JSON.stringify(data, null, 2));
-      console.log("🔍 Response success:", data.success);
-      console.log("🔍 Response error:", data.error);
-      console.log("🔍 Response explanation:", data.explanation);
+
+      console.log("[LLM] Response received:", data.success ? "success" : "failed");
 
       if (data.success) {
         return {
@@ -139,12 +132,10 @@ class LangChainService {
         };
       }
 
-      // ✅ PROPER ERROR HANDLING:
       if (data.error) {
         throw new Error(data.error);
       }
 
-      // ✅ Handle case where backend returns success: false but no error message
       if (data.explanation && data.explanation.includes("failed")) {
         return {
           explanation: data.explanation,
@@ -153,7 +144,6 @@ class LangChainService {
         };
       }
 
-      // ✅ Handle any other error format
       if (data.message) {
         throw new Error(data.message);
       }
@@ -163,16 +153,15 @@ class LangChainService {
     } catch (error) {
       console.error("Enhanced LLM analysis error:", error);
       return {
-        explanation: `Analysis failed: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`,
+        explanation: `Analysis failed: ${error instanceof Error ? error.message : "Unknown error"
+          }`,
         success: false,
         error: error instanceof Error ? error.message : "Unknown error",
       };
     }
   }
 
-  /** ✅ Execute generated code and get results */
+  /** Execute generated code and get results */
   async executeCode(
     session_id: string,
     code: string
@@ -198,14 +187,13 @@ class LangChainService {
       console.error("Code execution failed:", error);
       return {
         success: false,
-        error: `Execution failed: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`,
+        error: `Execution failed: ${error instanceof Error ? error.message : "Unknown error"
+          }`,
       };
     }
   }
 
-  /** ✅ Get session health status */
+  /** Get session health status */
   async getHealth(): Promise<{ status: string; sessions: number }> {
     try {
       const res = await fetch(`${this.apiUrl}/api/health`);
@@ -221,7 +209,7 @@ class LangChainService {
     }
   }
 
-  /** ✅ Clean up expired sessions */
+  /** Clean up expired sessions */
   async cleanupSessions(): Promise<{
     success: boolean;
     cleaned: number;
@@ -243,8 +231,8 @@ class LangChainService {
     }
   }
 
-  /** ✅ Enhanced direct Gemini call with better prompting */
-  async enhancedDirectGeminiAnalyze(
+  /** Direct Groq API call as fallback */
+  async enhancedDirectGroqAnalyze(
     prompt: string,
     apiKey: string,
     options?: {
@@ -255,31 +243,23 @@ class LangChainService {
   ): Promise<StructuredResponse> {
     try {
       const response = await fetch(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent",
+        "https://api.groq.com/openai/v1/chat/completions",
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "x-goog-api-key": apiKey,
+            Authorization: `Bearer ${apiKey}`,
           },
           body: JSON.stringify({
-            contents: [
+            model: "llama-3.3-70b-versatile",
+            messages: [
               {
-                parts: [
-                  {
-                    text: prompt,
-                  },
-                ],
+                role: "user",
+                content: prompt,
               },
             ],
-            generationConfig: {
-              temperature: options?.temperature || 0.2,
-              maxOutputTokens: options?.maxTokens || 2000,
-              responseMimeType:
-                options?.responseFormat === "structured"
-                  ? "application/json"
-                  : "text/plain",
-            },
+            temperature: options?.temperature || 0.2,
+            max_tokens: options?.maxTokens || 2000,
           }),
         }
       );
@@ -287,16 +267,14 @@ class LangChainService {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(
-          `Gemini API error: ${response.status} - ${
-            errorData.error?.message || response.statusText
+          `Groq API error: ${response.status} - ${errorData.error?.message || response.statusText
           }`
         );
       }
 
       const data = await response.json();
-      const analysis = data.candidates[0].content.parts[0].text;
+      const analysis = data.choices[0].message.content;
 
-      // Try to parse as JSON if structured response requested
       if (options?.responseFormat === "structured") {
         try {
           const parsed = JSON.parse(analysis);
@@ -307,26 +285,24 @@ class LangChainService {
             chartType: parsed.chartType,
             success: true,
           };
-        } catch (parseError) {
-          // Fallback to text parsing
+        } catch {
           return this.parseStructuredResponse(analysis);
         }
       }
 
       return this.parseStructuredResponse(analysis);
     } catch (error) {
-      console.error("Enhanced Gemini error:", error);
+      console.error("Groq API error:", error);
       return {
-        explanation: `Gemini error: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`,
+        explanation: `Groq error: ${error instanceof Error ? error.message : "Unknown error"
+          }`,
         success: false,
         error: error instanceof Error ? error.message : "Unknown error",
       };
     }
   }
 
-  /** ✅ Parse structured response from text */
+  /** Parse structured response from text */
   private parseStructuredResponse(response: string): StructuredResponse {
     try {
       const explanationMatch = response.match(
@@ -346,11 +322,11 @@ class LangChainService {
         code: codeMatch ? codeMatch[1].trim() : undefined,
         nextSteps: nextStepsMatch
           ? nextStepsMatch[1]
-              .split("\n")
-              .filter((step: string) => step.trim())
-              .map((step: string) =>
-                step.replace(/^[-•*]\s*/, "").trim()
-              )
+            .split("\n")
+            .filter((step: string) => step.trim())
+            .map((step: string) =>
+              step.replace(/^[-•*]\s*/, "").trim()
+            )
           : [],
         chartType: chartTypeMatch ? chartTypeMatch[1] : undefined,
         domainInsights: domainInsightsMatch
@@ -358,7 +334,7 @@ class LangChainService {
           : undefined,
         success: true,
       };
-    } catch (error) {
+    } catch {
       return {
         explanation: response,
         success: true,
@@ -366,10 +342,10 @@ class LangChainService {
     }
   }
 
-  /** ✅ Fallback to basic analysis if enhanced fails */
+  /** Fallback to basic analysis if enhanced fails */
   async analyzeWithFallback(
     request: LLMAnalyzeRequest,
-    geminiApiKey: string
+    groqApiKey: string
   ): Promise<StructuredResponse> {
     try {
       // First try: Enhanced backend analysis
@@ -377,10 +353,10 @@ class LangChainService {
         const result = await this.enhancedLlmAnalyze(request);
         if (result.success) return result;
       } catch (error) {
-        console.warn("Enhanced backend failed, trying direct Gemini");
+        console.warn("Enhanced backend failed, trying direct Groq");
       }
 
-      // Second try: Enhanced direct Gemini
+      // Second try: Direct Groq API
       try {
         const enhancedPrompt = this.createEnhancedPrompt(
           request.query,
@@ -388,15 +364,15 @@ class LangChainService {
           request.chat_history || []
         );
 
-        const result = await this.enhancedDirectGeminiAnalyze(
+        const result = await this.enhancedDirectGroqAnalyze(
           enhancedPrompt,
-          geminiApiKey,
+          groqApiKey,
           { responseFormat: "structured" }
         );
 
         if (result.success) return result;
       } catch (error) {
-        console.warn("Enhanced Gemini failed, trying basic analysis");
+        console.warn("Direct Groq failed, trying basic analysis");
       }
 
       // Final fallback: Basic analysis
@@ -414,16 +390,15 @@ class LangChainService {
       throw new Error("All analysis methods failed");
     } catch (error) {
       return {
-        explanation: `Analysis unavailable: ${
-          error instanceof Error ? error.message : "Please try again"
-        }`,
+        explanation: `Analysis unavailable: ${error instanceof Error ? error.message : "Please try again"
+          }`,
         success: false,
         error: error instanceof Error ? error.message : "Unknown error",
       };
     }
   }
 
-  /** ✅ Create enhanced prompt for direct API calls */
+  /** Create enhanced prompt for direct API calls */
   private createEnhancedPrompt(
     query: string,
     dataContext: any,
@@ -444,7 +419,6 @@ class LangChainService {
         .map((msg: any) => `${msg.role?.toUpperCase()}: ${msg.content}`)
         .join("\n") || "No previous messages";
 
-    // Detect domain
     const columnNames = (safeContext.columns || []).join(" ").toLowerCase();
     let domain = "General";
     if (
@@ -466,9 +440,8 @@ class LangChainService {
 ## DATASET CONTEXT
 - DOMAIN: ${domain}
 - FILENAME: ${safeContext.filename || "Unknown"}
-- SHAPE: ${safeContext.shape?.rows || 0} rows × ${
-      safeContext.shape?.columns || 0
-    } columns
+- SHAPE: ${safeContext.shape?.rows || 0} rows x ${safeContext.shape?.columns || 0
+      } columns
 - COLUMNS: ${safeContext.columns?.join(", ") || "None"}
 - NUMERICAL: ${safeContext.numerical_columns?.join(", ") || "None"}
 - CATEGORICAL: ${safeContext.categorical_columns?.join(", ") || "None"}
