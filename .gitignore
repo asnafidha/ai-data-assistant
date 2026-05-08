@@ -21,3 +21,4 @@ backend/database.db
 # OS
 .DS_Store
 Thumbs.db
+backend/venv/
